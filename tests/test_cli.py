@@ -199,3 +199,17 @@ def test_version(capsys: pytest.CaptureFixture[str]) -> None:
         main(["--version"])
     assert exc.value.code == 0
     assert "noisefloor" in capsys.readouterr().out
+
+
+def test_same_stem_names_are_disambiguated(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "main").mkdir()
+    (tmp_path / "pr").mkdir()
+    a = _write(tmp_path / "main" / "qa.jsonl", [1, 0, 1, 1, 0] * 10)
+    b = _write(tmp_path / "pr" / "qa.jsonl", [1, 1, 1, 1, 0] * 10)
+    code, out, _ = run(["compare", str(a), str(b), "--no-color"], capsys)
+    assert code == EXIT_OK
+    assert "main/qa → pr/qa" in out
+    code, out, _ = run(["compare", str(a), str(a), "--no-color"], capsys)
+    assert "qa (baseline) → qa (candidate)" in out

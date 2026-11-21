@@ -9,6 +9,7 @@ import argparse
 import math
 import sys
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -176,8 +177,23 @@ def cmd_summary(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _distinct_names(
+    base: EvalRun, cand: EvalRun, base_path: Path, cand_path: Path
+) -> tuple[EvalRun, EvalRun]:
+    """``main/qa.jsonl`` vs ``pr/qa.jsonl`` should not both be labelled ``qa``."""
+    if base.name != cand.name:
+        return base, cand
+    b_name = f"{base_path.resolve().parent.name}/{base.name}"
+    c_name = f"{cand_path.resolve().parent.name}/{cand.name}"
+    if b_name == c_name:
+        b_name, c_name = f"{base.name} (baseline)", f"{cand.name} (candidate)"
+    return replace(base, name=b_name), replace(cand, name=c_name)
+
+
 def _comparison(args: argparse.Namespace) -> tuple[Any, EvalRun, EvalRun]:
-    base, cand = _load(args.baseline, args), _load(args.candidate, args)
+    base, cand = _distinct_names(
+        _load(args.baseline, args), _load(args.candidate, args), args.baseline, args.candidate
+    )
     c = compare(base, cand, confidence=args.confidence, cluster=not args.no_cluster)
     return c, base, cand
 
