@@ -28,7 +28,15 @@ FloatArray = npt.NDArray[np.float64]
 
 ID_FIELDS = ("id", "question_id", "qid", "example_id", "task_id", "problem_id", "sample_id", "uid")
 SCORE_FIELDS = ("score", "correct", "is_correct", "accuracy", "passed", "pass", "reward", "label")
-CLUSTER_FIELDS = ("cluster", "cluster_id", "group", "group_id", "passage_id", "document_id")
+CLUSTER_FIELDS = (
+    "cluster",
+    "cluster_id",
+    "group",
+    "group_id",
+    "doc_id",
+    "document_id",
+    "passage_id",
+)
 
 _TRUE = {"true", "t", "yes", "y", "pass", "passed", "correct"}
 _FALSE = {"false", "f", "no", "n", "fail", "failed", "incorrect"}
