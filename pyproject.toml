@@ -46,6 +46,9 @@ markers = ["slow: Monte Carlo validation tests (deselect with -m 'not slow')"]
 line-length = 100
 target-version = "py310"
 
+[tool.ruff.format]
+exclude = ["*.md"]
+
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "C4", "PT"]
 ignore = ["RUF001", "RUF002", "RUF003", "N803", "N806"]

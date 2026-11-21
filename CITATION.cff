@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use noisefloor, please cite it as below."
+title: "noisefloor: statistical rigor for LLM evaluations"
+authors:
+  - family-names: Ibrahim
+    given-names: Abualgasim
+version: 0.1.0
+date-released: 2026-11-21
+license: MIT
+repository-code: "https://github.com/Gasooom/noisefloor"
+keywords:
+  - llm evaluation
+  - statistics
+  - confidence intervals
+  - power analysis
+references:
+  - type: article
+    title: "Adding Error Bars to Evals: A Statistical Approach to Language Model Evaluations"
+    authors:
+      - family-names: Miller
+        given-names: Evan
+    year: 2024
+    identifiers:
+      - type: other
+        value: "arXiv:2411.00640"
