@@ -3,7 +3,7 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "noisefloor"
+name = "noisefloor-evals"
 version = "0.1.0"
 description = "Is your eval improvement real, or just noise? Statistical rigor for LLM evaluations."
 readme = "README.md"
@@ -33,6 +33,8 @@ noisefloor = "noisefloor.cli:main"
 [project.urls]
 Homepage = "https://github.com/Gasooom/noisefloor"
 Issues = "https://github.com/Gasooom/noisefloor/issues"
+Documentation = "https://github.com/Gasooom/noisefloor/blob/main/docs/methodology.md"
+Changelog = "https://github.com/Gasooom/noisefloor/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/noisefloor"]

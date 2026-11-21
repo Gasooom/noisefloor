@@ -13,6 +13,7 @@ leaderboard tiers, and a CI gate that blocks real regressions, not noise.
 ![Dependencies](https://img.shields.io/badge/dependencies-numpy%20only-brightgreen)
 ![Typed](https://img.shields.io/badge/mypy-strict-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+[![PyPI](https://img.shields.io/pypi/v/noisefloor-evals)](https://pypi.org/project/noisefloor-evals/)
 
 </div>
 
@@ -85,8 +86,11 @@ guarantee against data with known ground truth.
 ## Install
 
 ```bash
-pip install git+https://github.com/Gasooom/noisefloor
+pip install noisefloor-evals
 ```
+
+The package is published as `noisefloor-evals`; you import it as `noisefloor`, and
+the command is `noisefloor`.
 
 Requires Python ≥ 3.10. The only runtime dependency is numpy; the Student-t
 distribution is implemented from scratch, so there is no SciPy.
@@ -281,7 +285,6 @@ The full derivations are in [docs/methodology.md](docs/methodology.md). In short
 - [ ] LLM-as-judge noise: judge-resampling variance and inter-judge agreement
 - [ ] Stratified / weighted estimates for evals that mix difficulty buckets
 - [ ] HTML report with forest plots
-- [ ] PyPI release
 
 ## Contributing
 
