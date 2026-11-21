@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "noisefloor"
+version = "0.1.0"
+description = "Is your eval improvement real, or just noise? Statistical rigor for LLM evaluations."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Abualgasim Ibrahim" }]
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+keywords = ["llm", "evaluation", "evals", "statistics", "confidence-intervals", "power-analysis", "ci"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "hypothesis>=6", "ruff>=0.5", "mypy>=1.10"]
+
+[project.scripts]
+noisefloor = "noisefloor.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Gasooom/noisefloor"
+Issues = "https://github.com/Gasooom/noisefloor/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/noisefloor"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["slow: Monte Carlo validation tests (deselect with -m 'not slow')"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "C4", "PT"]
+ignore = ["RUF001", "RUF002", "RUF003", "N803", "N806"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+files = ["src/noisefloor"]
