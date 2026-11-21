@@ -1,0 +1,151 @@
+name: noisefloor eval gate
+description: Block merges on real eval regressions, not on noise. Posts a statistically sound eval report on the pull request.
+author: Abualgasim Ibrahim
+branding:
+  icon: activity
+  color: purple
+
+inputs:
+  baseline:
+    description: Path to the baseline per-question results (JSONL, CSV, or JSON).
+    required: true
+  candidate:
+    description: Path to the candidate per-question results.
+    required: true
+  max-regression:
+    description: >-
+      Non-inferiority margin, e.g. "1pp". Fail unless a regression larger than this
+      can be ruled out. Leave empty to fail only on significant regressions.
+    default: ""
+  require-improvement:
+    description: Fail unless the candidate is significantly better.
+    default: "false"
+  allow-regression:
+    description: Never fail on a significant regression (report only).
+    default: "false"
+  confidence:
+    description: Confidence level for intervals.
+    default: "95%"
+  extra-args:
+    description: Extra arguments for `noisefloor gate` (e.g. "--score-field passed").
+    default: ""
+  comment:
+    description: Post (or update) a report comment on the pull request.
+    default: "true"
+  comment-tag:
+    description: Distinguishes reports when one PR runs several gates.
+    default: "default"
+  python-version:
+    description: Python version used to run noisefloor.
+    default: "3.12"
+  github-token:
+    description: Token used to post the PR comment.
+    default: ${{ github.token }}
+
+outputs:
+  passed:
+    description: '"true" if the gate passed.'
+    value: ${{ steps.gate.outputs.passed }}
+  verdict:
+    description: improvement, regression, or inconclusive.
+    value: ${{ steps.gate.outputs.verdict }}
+  difference:
+    description: Candidate minus baseline mean score.
+    value: ${{ steps.gate.outputs.difference }}
+  ci-low:
+    description: Lower confidence bound of the difference.
+    value: ${{ steps.gate.outputs.ci_low }}
+  ci-high:
+    description: Upper confidence bound of the difference.
+    value: ${{ steps.gate.outputs.ci_high }}
+  p-value:
+    description: Two-sided p-value of the paired test.
+    value: ${{ steps.gate.outputs.p_value }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install noisefloor
+      shell: bash
+      run: python -m pip install --quiet "$ACTION_PATH"
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+
+    - name: Run eval gate
+      id: gate
+      shell: bash
+      env:
+        NF_BASELINE: ${{ inputs.baseline }}
+        NF_CANDIDATE: ${{ inputs.candidate }}
+        NF_MAX_REGRESSION: ${{ inputs.max-regression }}
+        NF_REQUIRE_IMPROVEMENT: ${{ inputs.require-improvement }}
+        NF_ALLOW_REGRESSION: ${{ inputs.allow-regression }}
+        NF_CONFIDENCE: ${{ inputs.confidence }}
+        NF_EXTRA_ARGS: ${{ inputs.extra-args }}
+      run: |
+        set -uo pipefail
+        args=(--confidence "$NF_CONFIDENCE")
+        [ -n "$NF_MAX_REGRESSION" ] && args+=(--max-regression "$NF_MAX_REGRESSION")
+        [ "$NF_REQUIRE_IMPROVEMENT" = "true" ] && args+=(--require-improvement)
+        [ "$NF_ALLOW_REGRESSION" = "true" ] && args+=(--allow-regression)
+        read -r -a extra <<< "$NF_EXTRA_ARGS"
+
+        md="$RUNNER_TEMP/noisefloor.md"
+        json="$RUNNER_TEMP/noisefloor.json"
+        noisefloor gate "$NF_BASELINE" "$NF_CANDIDATE" "${args[@]}" "${extra[@]}" --color
+        noisefloor gate "$NF_BASELINE" "$NF_CANDIDATE" "${args[@]}" "${extra[@]}" \
+          -f json -o "$json" --markdown "$md"
+        code=$?
+        if [ "$code" -ge 2 ]; then
+          echo "::error::noisefloor could not evaluate the results (exit $code)"
+          exit "$code"
+        fi
+
+        cat "$md" >> "$GITHUB_STEP_SUMMARY"
+        python - "$json" >> "$GITHUB_OUTPUT" <<'PY'
+        import json, sys
+        r = json.load(open(sys.argv[1]))
+        d = r["difference"]
+        print(f"passed={str(r['gate']['passed']).lower()}")
+        print(f"verdict={r['verdict']}")
+        print(f"difference={d['mean']}")
+        print(f"ci_low={d['ci'][0]}")
+        print(f"ci_high={d['ci'][1]}")
+        print(f"p_value={r['p_value']}")
+        PY
+        echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+    - name: Comment on pull request
+      if: inputs.comment == 'true' && github.event.pull_request.number
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ github.repository }}
+        PR: ${{ github.event.pull_request.number }}
+        TAG: ${{ inputs.comment-tag }}
+      run: |
+        set -euo pipefail
+        marker="<!-- noisefloor:${TAG} -->"
+        body="$RUNNER_TEMP/noisefloor-comment.md"
+        { echo "$marker"; cat "$RUNNER_TEMP/noisefloor.md"; } > "$body"
+        existing=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+          --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | tail -n 1)
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F "body=@$body" > /dev/null
+        else
+          gh api -X POST "repos/$REPO/issues/$PR/comments" -F "body=@$body" > /dev/null
+        fi || echo "::warning::could not post the noisefloor comment (missing pull-requests: write?)"
+
+    - name: Enforce gate
+      shell: bash
+      env:
+        CODE: ${{ steps.gate.outputs.exit_code }}
+      run: |
+        if [ "$CODE" = "1" ]; then
+          echo "::error::noisefloor gate failed; see the job summary for details"
+          exit 1
+        fi
