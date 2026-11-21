@@ -1,10 +1,11 @@
 name: Release
 
-# Publishes to PyPI when a GitHub release is published, using PyPI Trusted
+# Publishes to PyPI when a version tag (v1.2.3) is pushed, using PyPI Trusted
 # Publishing (OIDC): no API token is stored anywhere.
+#   git tag v0.2.0 && git push origin v0.2.0
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
 
 permissions:
   contents: read
@@ -19,7 +20,7 @@ jobs:
           python-version: "3.12"
       - name: Check the tag matches the package version
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.ref_name }}
         run: |
           version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           if [ "${TAG#v}" != "$version" ]; then
