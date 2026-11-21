@@ -87,19 +87,22 @@ runs:
         NF_CONFIDENCE: ${{ inputs.confidence }}
         NF_EXTRA_ARGS: ${{ inputs.extra-args }}
       run: |
-        set -uo pipefail
+        # GitHub runs this with `bash -e`; a failing gate (exit 1) must not abort
+        # the step before its outputs are written, so exit codes are captured.
+        set -euo pipefail
         args=(--confidence "$NF_CONFIDENCE")
-        [ -n "$NF_MAX_REGRESSION" ] && args+=(--max-regression "$NF_MAX_REGRESSION")
-        [ "$NF_REQUIRE_IMPROVEMENT" = "true" ] && args+=(--require-improvement)
-        [ "$NF_ALLOW_REGRESSION" = "true" ] && args+=(--allow-regression)
-        read -r -a extra <<< "$NF_EXTRA_ARGS"
+        if [ -n "$NF_MAX_REGRESSION" ]; then args+=(--max-regression "$NF_MAX_REGRESSION"); fi
+        if [ "$NF_REQUIRE_IMPROVEMENT" = "true" ]; then args+=(--require-improvement); fi
+        if [ "$NF_ALLOW_REGRESSION" = "true" ]; then args+=(--allow-regression); fi
+        extra=()
+        if [ -n "$NF_EXTRA_ARGS" ]; then read -r -a extra <<< "$NF_EXTRA_ARGS"; fi
 
         md="$RUNNER_TEMP/noisefloor.md"
         json="$RUNNER_TEMP/noisefloor.json"
-        noisefloor gate "$NF_BASELINE" "$NF_CANDIDATE" "${args[@]}" "${extra[@]}" --color
+        noisefloor gate "$NF_BASELINE" "$NF_CANDIDATE" "${args[@]}" "${extra[@]}" --color || true
+        code=0
         noisefloor gate "$NF_BASELINE" "$NF_CANDIDATE" "${args[@]}" "${extra[@]}" \
-          -f json -o "$json" --markdown "$md"
-        code=$?
+          -f json -o "$json" --markdown "$md" || code=$?
         if [ "$code" -ge 2 ]; then
           echo "::error::noisefloor could not evaluate the results (exit $code)"
           exit "$code"
@@ -132,13 +135,20 @@ runs:
         marker="<!-- noisefloor:${TAG} -->"
         body="$RUNNER_TEMP/noisefloor-comment.md"
         { echo "$marker"; cat "$RUNNER_TEMP/noisefloor.md"; } > "$body"
-        existing=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
-          --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | tail -n 1)
+        warn() { echo "::warning::could not post the noisefloor comment ($1); needs pull-requests: write"; }
+        # A reporting failure must never fail the job; only the gate decides that.
+        if ! ids=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id"); then
+          warn "listing comments failed"; exit 0
+        fi
+        existing=$(printf '%s\n' "$ids" | tail -n 1)
         if [ -n "$existing" ]; then
-          gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F "body=@$body" > /dev/null
+          gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F "body=@$body" > /dev/null \
+            || warn "update failed"
         else
-          gh api -X POST "repos/$REPO/issues/$PR/comments" -F "body=@$body" > /dev/null
-        fi || echo "::warning::could not post the noisefloor comment (missing pull-requests: write?)"
+          gh api -X POST "repos/$REPO/issues/$PR/comments" -F "body=@$body" > /dev/null \
+            || warn "create failed"
+        fi
 
     - name: Enforce gate
       shell: bash
